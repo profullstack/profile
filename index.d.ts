@@ -89,6 +89,8 @@ export interface StoreOptions {
   table?: string;
   key?: string;
   keyType?: string;
+  /** Force the SQL dialect for a client that could be either. */
+  dialect?: "postgres" | "sqlite";
 }
 export interface ProfileStore {
   readonly table: string;
@@ -105,14 +107,17 @@ export interface ProfileStore {
   }>;
   all(opts?: { limit?: number; since?: string | null }): AsyncGenerator<Profile>;
 }
-/** postgres.js sql, a pg Pool/Client, an @libsql/client, a server-side supabase-js client, or a DbAdapter. */
+/**
+ * postgres.js or Bun SQL, a pg Pool/Client, @libsql/client or @profullstack/libsql-pg,
+ * bun:sqlite or better-sqlite3, a server-side supabase-js client, or a DbAdapter.
+ */
 export function createProfileStore(db: unknown, options?: StoreOptions): ProfileStore;
 export function migrate(
   dbOrStore: unknown,
   options?: StoreOptions,
 ): Promise<{ created: boolean; added: string[] }>;
 export function schemaSql(options?: StoreOptions & { dialect?: "postgres" | "sqlite" }): string;
-export function adapt(db: unknown): DbAdapter | { dialect: "supabase"; client: unknown };
+export function adapt(db: unknown, dialect?: "postgres" | "sqlite"): DbAdapter | { dialect: "supabase"; client: unknown };
 
 export interface SessionUser {
   id: string | number;

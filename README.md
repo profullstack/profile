@@ -18,7 +18,7 @@ What the package gives a property:
 - **Validation and normalization.** `acme.com/about`, `https://www.Acme.com` and `@acme.com` all become `acme.com`. Any LinkedIn URL, `in/x` or bare handle becomes the canonical URL. A link in a name box is refused as spam. Names are never "corrected" (McDonald stays McDonald).
 - **Company from a work email.** A blank company domain is filled from the signup email unless it is a personal or relay mailbox (gmail, proton, passmail and so on).
 - **Signup form fields.** As an HTML string for server-rendered pages, and as a React component, with the right `autocomplete` tokens so browsers fill them.
-- **Storage on whatever the property already runs:** postgres.js, node-postgres, libSQL/Turso, or supabase-js on the server. Either its own `user_profiles` table, or the columns added to an existing `profiles`/`users` table.
+- **Storage on whatever the property already runs:** postgres.js, Bun SQL, node-postgres, libSQL/Turso, @profullstack/libsql-pg, bun:sqlite, better-sqlite3, or supabase-js on the server. Either its own `user_profiles` table, or the columns added to an existing `profiles`/`users` table.
 - **`GET`/`PUT`/`PATCH /api/v1/me/profile`** handlers on Web-standard Request/Response, for Next and Hono alike.
 - **A CLI and an MCP server** (`profile`), including `profile export` in contract order.
 
