@@ -20,7 +20,7 @@ import {
   csvRow,
 } from "./index.js";
 
-const VERSION = "0.1.5";
+const VERSION = "0.1.6";
 
 const USAGE = `profile - signup profile fields (${COLUMNS.join(", ")})
 
