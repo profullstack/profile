@@ -155,6 +155,7 @@ for (const [name, open] of backends) {
       assert.ok((await res.json()).errors.linkedin_url);
       res = await (await h.PATCH(req("PATCH", { job_title: "CEO" }))).json();
       assert.equal(res.profile.job_title, "CEO");
+      assert.equal(res.profile.email, "eve@acme.com", "PATCH fills a missing email from the account");
       res = await h.PUT(req("PUT", { first_name: "Eve" }));
       assert.equal(res.status, 400, "PUT needs the required fields");
       res = await (await h.PUT(req("PUT", { first_name: "Eve", last_name: "Ng" }))).json();

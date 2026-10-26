@@ -76,7 +76,13 @@ export function createProfileHandlers({ store, getUser, required = DEFAULT_REQUI
       const input = partial ? body : withEmail(body, user.email);
       const result = validateProfile(input, { required, partial });
       if (!result.ok) return json({ error: "Some fields need fixing.", errors: result.errors }, 400);
-      const profile = await store.save(user.id, result.profile);
+      let profile = await store.save(user.id, result.profile);
+      // A PATCH that does not mention email still leaves a contact address:
+      // the account's, and only where the profile has none.
+      if (!profile.email && user.email) {
+        const email = validateProfile({ email: user.email }, { required: [], partial: true }).profile.email;
+        if (email) profile = await store.fillBlanks(user.id, { email });
+      }
       await onSaved?.(profile, user);
       return json({ profile, missing: missingFields(profile, required) });
     });
