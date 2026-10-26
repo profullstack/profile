@@ -20,12 +20,13 @@ import {
   csvRow,
 } from "./index.js";
 
-const VERSION = "0.1.1";
+const VERSION = "0.1.2";
 
 const USAGE = `profile - signup profile fields (${COLUMNS.join(", ")})
 
   profile migrate                        create the table, or add missing columns
-  profile schema [--dialect sqlite]      print the DDL for a migration file
+  profile schema [--dialect sqlite] [--key-type text]
+                                         print the DDL for a migration file
   profile get <user-id>                  one profile
   profile find <email>                   look a profile up by email
   profile set <user-id> --first-name Ada --company-domain acme.com ...
@@ -60,7 +61,7 @@ function parseArgs(argv) {
 
 /** Flags named like the fields (or their aliases) become a profile input. */
 function fieldFlags(flags) {
-  const skip = new Set(["table", "key", "format", "out", "since", "complete", "dialect", "help", "json"]);
+  const skip = new Set(["table", "key", "key_type", "format", "out", "since", "complete", "dialect", "help", "json"]);
   return Object.fromEntries(Object.entries(flags).filter(([k]) => !skip.has(k)));
 }
 
@@ -239,7 +240,14 @@ if (cmd === "mcp") {
   process.exit(0);
 }
 if (cmd === "schema") {
-  print(schemaSql({ dialect: flags.dialect === "sqlite" ? "sqlite" : "postgres", table: flags.table, key: flags.key }));
+  print(
+    schemaSql({
+      dialect: flags.dialect === "sqlite" ? "sqlite" : "postgres",
+      table: flags.table,
+      key: flags.key,
+      keyType: flags.key_type,
+    }),
+  );
   process.exit(0);
 }
 if (cmd === "check") {

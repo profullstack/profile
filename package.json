@@ -1,6 +1,6 @@
 {
   "name": "@profullstack/profile",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "One user profile for every property: email, first_name, last_name, company_domain, job_title, linkedin_url. Validation, signup form fields, storage on Postgres/Turso/Supabase, HTTP handlers, CSV export, CLI and MCP.",
   "keywords": [

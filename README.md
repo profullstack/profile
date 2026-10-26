@@ -131,6 +131,8 @@ for await (const p of profiles.all()) { ... }
 await profiles.remove(userId);
 ```
 
+A hand-written adapter is `{ dialect: "postgres" | "sqlite", query(text, params) }` and receives `?` placeholders. A Postgres client wrapped to look like `@libsql/client` (anything with `execute()` that is not `@profullstack/libsql-pg`) is taken for SQLite: pass `dialect: "postgres"`.
+
 There is no foreign key to a users table: the host's may be named anything or live elsewhere. Deleting a user is the host's job, so call `remove()` there.
 
 ## CLI and MCP
