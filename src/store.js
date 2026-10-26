@@ -24,20 +24,42 @@ function checkIdent(name, what) {
   return name;
 }
 
-/** Wrap a driver in `{ dialect, query(text, params) -> rows }`; `?` placeholders. */
-export function adapt(db) {
+/**
+ * Wrap a driver in `{ dialect, query(text, params) -> rows }`; `?` placeholders.
+ * `dialect` forces "postgres" or "sqlite" when a client could be either.
+ */
+export function adapt(db, dialect) {
   if (!db) throw new Error("profile: a database client is required");
   if (db.dialect && typeof db.query === "function") return db;
   if (typeof db.from === "function" && db.auth) return { dialect: "supabase", client: db };
+  // postgres.js and Bun's SQL: a tagged-template function with .unsafe().
   if (typeof db === "function" && typeof db.unsafe === "function") {
     return { dialect: "postgres", query: (text, params = []) => db.unsafe(dollars(text), params) };
   }
+  // @libsql/client, and @profullstack/libsql-pg, which has the same API but
+  // speaks Postgres (protocol "postgres") and translates `?` itself.
   if (typeof db.execute === "function") {
     return {
-      dialect: "sqlite",
+      dialect: dialect ?? (db.protocol === "postgres" ? "postgres" : "sqlite"),
       query: async (text, params = []) => (await db.execute({ sql: text, args: params })).rows,
     };
   }
+  // bun:sqlite and better-sqlite3: synchronous prepared statements. A
+  // better-sqlite3 statement that returns no rows must be run(), not all().
+  if (typeof db.prepare === "function") {
+    return {
+      dialect: dialect ?? "sqlite",
+      query: async (text, params = []) => {
+        const stmt = db.prepare(text);
+        if (stmt.reader === false) {
+          stmt.run(...params);
+          return [];
+        }
+        return stmt.all(...params);
+      },
+    };
+  }
+  // node-postgres Pool or Client.
   if (typeof db.query === "function") {
     return { dialect: "postgres", query: async (text, params = []) => (await db.query(dollars(text), params)).rows };
   }
@@ -151,18 +173,18 @@ function toProfile(row, key) {
 /**
  * Create a store. Options: `table` (default "user_profiles"), `key` (default
  * "user_id"; "id" for a Supabase-style `profiles` table), `keyType` (DDL only;
- * default uuid on Postgres, text on SQLite).
+ * default uuid on Postgres, text on SQLite), `dialect` (force "postgres" or
+ * "sqlite" for a client that could be either).
  */
-export function createProfileStore(dbClient, { table = "user_profiles", key = "user_id", keyType } = {}) {
+export function createProfileStore(dbClient, { table = "user_profiles", key = "user_id", keyType, dialect } = {}) {
   checkIdent(table, "table");
   checkIdent(key, "key");
-  const db = adapt(dbClient);
+  const db = adapt(dbClient, dialect);
   if (db.dialect === "supabase") return supabaseStore(db.client, { table, key, keyType, db });
 
   const t = quote(table);
   const k = `"${key}"`;
   const now = () => new Date().toISOString();
-  const cast = db.dialect === "postgres" ? "::timestamptz" : "";
   const cols = [key, ...COLUMNS, "created_at", "updated_at"].map((c) => `"${c}"`).join(", ");
 
   async function write(userId, profile, mode) {
@@ -172,7 +194,7 @@ export function createProfileStore(dbClient, { table = "user_profiles", key = "u
     const stamp = now();
     const insertCols = [k, ...names.map((n) => `"${n}"`), `"created_at"`, `"updated_at"`];
     const values = [String(userId), ...names.map((n) => fields[n]), stamp, stamp];
-    const placeholders = insertCols.map((c) => (c.endsWith(`_at"`) ? `?${cast}` : "?"));
+    const placeholders = insertCols.map(() => "?");
     const set = names.map((n) =>
       mode === "fill" ? `"${n}" = coalesce(p."${n}", excluded."${n}")` : `"${n}" = excluded."${n}"`,
     );
@@ -224,7 +246,7 @@ export function createProfileStore(dbClient, { table = "user_profiles", key = "u
       const where = [];
       const params = [];
       if (after != null) (where.push(`${k} > ?`), params.push(String(after)));
-      if (since) (where.push(`"updated_at" >= ?${cast}`), params.push(since));
+      if (since) (where.push(`"updated_at" >= ?`), params.push(since));
       params.push(Math.min(Math.max(1, Number(limit) || 500), 5000));
       const rows = await db.query(
         `select ${cols} from ${t} ${where.length ? `where ${where.join(" and ")}` : ""}

@@ -7,16 +7,32 @@ import { createProfileStore, migrate, createProfileHandlers, saveSignupProfile }
 // Every behaviour is checked on both dialects. Postgres runs when
 // TEST_DATABASE_URL is set (CI starts one); libSQL always runs in memory.
 const backends = [
-  ["sqlite", async () => {
+  ["libsql", async () => {
     const client = createClient({ url: ":memory:" });
-    return { db: client, close: () => client.close() };
+    return { db: client, exec: (q) => client.execute(q), close: () => client.close() };
+  }],
+  // node:sqlite has the synchronous prepare() API of bun:sqlite and better-sqlite3.
+  ["node:sqlite", async () => {
+    const { DatabaseSync } = await import("node:sqlite");
+    const db = new DatabaseSync(":memory:");
+    return { db, exec: (q) => db.exec(q), close: () => db.close() };
   }],
 ];
 if (process.env.TEST_DATABASE_URL) {
+  const fresh = async (sql) => sql.unsafe("drop table if exists user_profiles, profiles cascade");
   backends.push(["postgres", async () => {
     const sql = postgres(process.env.TEST_DATABASE_URL, { onnotice: () => {}, max: 4 });
-    await sql`drop table if exists user_profiles, profiles cascade`;
-    return { db: sql, close: () => sql.end() };
+    await fresh(sql);
+    return { db: sql, exec: (q) => sql.unsafe(q), close: () => sql.end() };
+  }]);
+  // @profullstack/libsql-pg looks like @libsql/client but speaks Postgres.
+  backends.push(["libsql-pg", async () => {
+    const { createClient: pgClient } = await import("@profullstack/libsql-pg");
+    const sql = postgres(process.env.TEST_DATABASE_URL, { onnotice: () => {}, max: 1 });
+    await fresh(sql);
+    await sql.end();
+    const client = pgClient({ url: process.env.TEST_DATABASE_URL });
+    return { db: client, exec: (q) => client.execute(q), close: () => client.close() };
   }]);
 }
 
@@ -95,11 +111,8 @@ for (const [name, open] of backends) {
     });
 
     test("an existing profiles table gets only the missing columns", async () => {
-      const db = conn.db;
-      const ddl = `create table profiles (id text primary key, first_name text, avatar_url text)`;
-      if (name === "postgres") await db.unsafe(ddl);
-      else await db.execute(ddl);
-      const s = createProfileStore(db, { table: "profiles", key: "id" });
+      await conn.exec(`create table profiles (id text primary key, first_name text, avatar_url text)`);
+      const s = createProfileStore(conn.db, { table: "profiles", key: "id" });
       const r = await migrate(s);
       assert.equal(r.created, false);
       assert.deepEqual(r.added.sort(), [

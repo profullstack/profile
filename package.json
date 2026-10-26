@@ -1,9 +1,19 @@
 {
   "name": "@profullstack/profile",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "One user profile for every property: email, first_name, last_name, company_domain, job_title, linkedin_url. Validation, signup form fields, storage on Postgres/Turso/Supabase, HTTP handlers, CSV export, CLI and MCP.",
-  "keywords": ["profile", "signup", "user-profile", "lead", "postgres", "turso", "libsql", "supabase", "mcp"],
+  "keywords": [
+    "profile",
+    "signup",
+    "user-profile",
+    "lead",
+    "postgres",
+    "turso",
+    "libsql",
+    "supabase",
+    "mcp"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -11,12 +21,27 @@
   },
   "homepage": "https://github.com/profullstack/profile#readme",
   "exports": {
-    ".": { "types": "./index.d.ts", "import": "./src/index.js" },
-    "./react": { "types": "./react.d.ts", "import": "./src/react.js" },
-    "./cli": { "import": "./src/cli.js" }
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./react": {
+      "types": "./react.d.ts",
+      "import": "./src/react.js"
+    },
+    "./cli": {
+      "import": "./src/cli.js"
+    }
   },
-  "bin": { "profile": "./src/cli.js" },
-  "files": ["src", "index.d.ts", "react.d.ts", "README.md"],
+  "bin": {
+    "profile": "./src/cli.js"
+  },
+  "files": [
+    "src",
+    "index.d.ts",
+    "react.d.ts",
+    "README.md"
+  ],
   "scripts": {
     "test": "node --test test/*.test.js"
   },
@@ -26,15 +51,24 @@
     "react": ">=18"
   },
   "peerDependenciesMeta": {
-    "@libsql/client": { "optional": true },
-    "postgres": { "optional": true },
-    "react": { "optional": true }
+    "@libsql/client": {
+      "optional": true
+    },
+    "postgres": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@libsql/client": "^0.15.15",
+    "@profullstack/libsql-pg": "^0.1.4",
     "postgres": "^3.4.7",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }
