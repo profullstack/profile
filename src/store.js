@@ -51,11 +51,17 @@ export function adapt(db, dialect) {
       dialect: dialect ?? "sqlite",
       query: async (text, params = []) => {
         const stmt = db.prepare(text);
-        if (stmt.reader === false) {
-          stmt.run(...params);
-          return [];
+        try {
+          if (stmt.reader === false) {
+            stmt.run(...params);
+            return [];
+          }
+          return stmt.all(...params);
+        } finally {
+          // bun:sqlite keeps the file open (locked on Windows) until every
+          // statement is finalized, even after db.close().
+          stmt.finalize?.();
         }
-        return stmt.all(...params);
       },
     };
   }
