@@ -116,8 +116,10 @@ async function existingColumns(db, table) {
 
 /**
  * Create the table, or add whatever columns an existing one lacks. Safe to run
- * on every boot and from two instances at once (Postgres takes an advisory lock
- * for the duration).
+ * on every boot and from two instances at once. There is no advisory lock:
+ * through a pool the lock and unlock can land on different connections and
+ * leave the lock held. Every statement is idempotent instead, and the one race
+ * left (two creators at once) is settled by retrying on "already exists".
  */
 export async function migrate(dbOrStore, opts = {}) {
   const store = dbOrStore?.__profileStore ? dbOrStore : createProfileStore(dbOrStore, opts);
@@ -128,34 +130,53 @@ export async function migrate(dbOrStore, opts = {}) {
         schemaSql({ table, key, keyType }),
     );
   }
-  const pg = db.dialect === "postgres";
-  if (pg) await db.query(`select pg_advisory_lock(hashtext(?))`, [`@profullstack/profile:${table}`]);
-  try {
-    const have = await existingColumns(db, table);
-    if (have.size === 0) {
-      for (const stmt of schemaSql({ dialect: db.dialect, table, key, keyType }).split(";\n")) {
-        if (stmt.trim()) await db.query(stmt);
-      }
-      return { created: true, added: [] };
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await migrateOnce(db, { table, key, keyType });
+    } catch (e) {
+      if (attempt < 3 && isAlreadyExists(e)) continue;
+      throw e;
     }
-    if (!have.has(key)) throw new Error(`profile: table ${table} has no key column ${key}`);
-    const added = [];
-    for (const col of [...COLUMNS, "created_at", "updated_at"]) {
-      if (have.has(col)) continue;
-      // SQLite cannot add a column whose default is not a constant, so the
-      // timestamps arrive empty and are filled on the next write.
-      const type = col.endsWith("_at") ? (pg ? "timestamptz default now()" : "text") : "text";
+  }
+}
+
+// Postgres: duplicate_table, duplicate_object, duplicate_column, and the
+// unique_violation on pg_type that two concurrent CREATE TABLEs can raise.
+// SQLite: "already exists" / "duplicate column name".
+function isAlreadyExists(e) {
+  const code = e?.code ?? e?.cause?.code;
+  if (["42P07", "42710", "42701", "23505"].includes(code)) return true;
+  return /already exists|duplicate column/i.test(String(e?.message ?? ""));
+}
+
+async function migrateOnce(db, { table, key, keyType }) {
+  const pg = db.dialect === "postgres";
+  const have = await existingColumns(db, table);
+  if (have.size === 0) {
+    for (const stmt of schemaSql({ dialect: db.dialect, table, key, keyType }).split(";\n")) {
+      if (stmt.trim()) await db.query(stmt);
+    }
+    return { created: true, added: [] };
+  }
+  if (!have.has(key)) throw new Error(`profile: table ${table} has no key column ${key}`);
+  const added = [];
+  for (const col of [...COLUMNS, "created_at", "updated_at"]) {
+    if (have.has(col)) continue;
+    // SQLite cannot add a column whose default is not a constant, so the
+    // timestamps arrive empty and are filled on the next write.
+    const type = col.endsWith("_at") ? (pg ? "timestamptz default now()" : "text") : "text";
+    try {
       await db.query(`alter table ${quote(table)} add column ${pg ? "if not exists " : ""}"${col}" ${type}`);
       added.push(col);
+    } catch (e) {
+      if (!isAlreadyExists(e)) throw e;
     }
-    if (!have.has("email") || added.includes("email")) {
-      const idx = table.replace(/\./g, "_");
-      await db.query(`create index if not exists "${idx}_email" on ${quote(table)} (lower("email"))`);
-    }
-    return { created: false, added };
-  } finally {
-    if (pg) await db.query(`select pg_advisory_unlock(hashtext(?))`, [`@profullstack/profile:${table}`]);
   }
+  if (added.includes("email")) {
+    const idx = table.replace(/\./g, "_");
+    await db.query(`create index if not exists "${idx}_email" on ${quote(table)} (lower("email"))`);
+  }
+  return { created: false, added };
 }
 
 /** Only the contract's fields, from whatever object was passed. */
