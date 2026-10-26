@@ -1,6 +1,6 @@
 {
   "name": "@profullstack/profile",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "module",
   "description": "One user profile for every property: email, first_name, last_name, company_domain, job_title, linkedin_url. Validation, signup form fields, storage on Postgres/Turso/Supabase, HTTP handlers, CSV export, CLI and MCP.",
   "keywords": [
@@ -23,15 +23,19 @@
   "exports": {
     ".": {
       "types": "./index.d.ts",
-      "import": "./src/index.js"
+      "import": "./src/index.js",
+      "default": "./src/index.js"
     },
     "./react": {
       "types": "./react.d.ts",
-      "import": "./src/react.js"
+      "import": "./src/react.js",
+      "default": "./src/react.js"
     },
     "./cli": {
-      "import": "./src/cli.js"
-    }
+      "import": "./src/cli.js",
+      "default": "./src/cli.js"
+    },
+    "./package.json": "./package.json"
   },
   "bin": {
     "profile": "./src/cli.js"
