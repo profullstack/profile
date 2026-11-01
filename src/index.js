@@ -22,6 +22,6 @@ export {
   ProfileValidationError,
 } from "./validate.js";
 export { createProfileStore, migrate, schemaSql, adapt } from "./store.js";
-export { createProfileHandlers, mountProfileRoutes, saveSignupProfile } from "./handlers.js";
+export { createProfileHandlers, mountProfileRoutes, saveSignupProfile, saveOpenProfileContact } from "./handlers.js";
 export { renderProfileFields, PROFILE_ENHANCE_SCRIPT } from "./html.js";
 export { toCsv, csvHeader, csvRow, csvCell } from "./csv.js";

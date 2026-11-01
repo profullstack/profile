@@ -14,6 +14,7 @@ import {
   parseProfile,
   ProfileValidationError,
   missingFields,
+  PROFILE_ENHANCE_SCRIPT,
   renderProfileFields,
   toCsv,
 } from "../src/index.js";
@@ -162,6 +163,14 @@ describe("rendering", () => {
     assert.match(html, /Bad &lt;email&gt;/);
     assert.ok(!html.includes("<script>"));
     assert.match(html, /Job title <span[^>]*>\(optional\)/);
+  });
+  test("server-rendered forms can opt into OpenProfile prefill", () => {
+    const html = renderProfileFields({ importOpenProfile: true, idPrefix: "settings-" });
+    assert.match(html, /Prefill from OpenProfile\.md/);
+    assert.match(html, /id="settings-openprofile-url"/);
+    assert.match(html, /data-pfs-openprofile-import/);
+    assert.match(html, /Fetch and prefill/);
+    assert.match(PROFILE_ENHANCE_SCRIPT, /data-pfs-openprofile-import/);
   });
   test("csv keeps order, quotes and defuses formulas", () => {
     const csv = toCsv([{ email: "a@acme.com", first_name: "=HYPERLINK()", last_name: 'O"Neil, Jr', job_title: "-1 CTO" }]);

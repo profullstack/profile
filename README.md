@@ -86,6 +86,32 @@ export const { GET, PUT, PATCH } = createProfileHandlers({
 });
 ```
 
+On a signed-in profile settings form, enable URL prefill without adding another
+API route:
+
+```jsx
+<ProfileFields
+  values={values}
+  onChange={setValues}
+  importOpenProfile
+/>
+```
+
+The importer reads an OpenProfile.md URL through the authenticated
+`GET /api/v1/me/profile?openprofile=<url>` handler, then fills only matching
+fields. It does not save; the person reviews and submits the existing form.
+The server follows only public HTTPS hosts, rechecks redirects, caps the
+document at 256 KB, and returns normalized contact fields rather than the
+source document. Server-rendered forms can pass `importOpenProfile: true` to
+`renderProfileFields` and include `PROFILE_ENHANCE_SCRIPT` on the page.
+
+After an account connection, server code can save the linked profile into
+blank fields while preserving anything the person already entered:
+
+```js
+await saveOpenProfileContact(profileStore, user.id, coinpayUser.openprofile_url);
+```
+
 ### Hono on Turso
 
 ```js

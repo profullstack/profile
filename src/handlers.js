@@ -36,6 +36,15 @@ export async function saveSignupProfile(store, userId, input, { email, required 
   return { ...result, profile: await store.save(userId, result.profile) };
 }
 
+/** Fetch an OpenProfile and fill only missing stored contact fields. */
+export async function saveOpenProfileContact(store, userId, url, fetchOptions) {
+  if (!store || typeof store.fillBlanks !== "function") throw new Error("profile: a profile store is required");
+  if (userId === null || userId === undefined || userId === "") throw new Error("profile: userId is required");
+  const { fetchOpenProfileContact } = await import("./openprofile-import.js");
+  const imported = await fetchOpenProfileContact(url, fetchOptions);
+  return store.fillBlanks(userId, imported);
+}
+
 function withEmail(input, email) {
   if (!email) return input;
   const has = input && (typeof input.get === "function" ? input.get("email") : input.email);
@@ -51,7 +60,7 @@ function withEmail(input, email) {
  * The account email fills the profile email when the profile has none.
  * `required` applies to PUT (a whole profile); PATCH checks only what it sends.
  */
-export function createProfileHandlers({ store, getUser, required = DEFAULT_REQUIRED, onSaved } = {}) {
+export function createProfileHandlers({ store, getUser, required = DEFAULT_REQUIRED, onSaved, openProfileImporter } = {}) {
   if (!store || typeof getUser !== "function") throw new Error("profile: store and getUser are required");
 
   const authed = (fn) => async (request, ...rest) => {
@@ -88,7 +97,22 @@ export function createProfileHandlers({ store, getUser, required = DEFAULT_REQUI
     });
 
   return {
-    GET: authed(async (_request, user) => {
+    GET: authed(async (request, user) => {
+      const requestedProfile = new URL(request.url).searchParams.get("openprofile");
+      if (requestedProfile !== null) {
+        try {
+          // Keep the DNS-aware fetch implementation out of the client bundle;
+          // this branch runs only in the authenticated server handler.
+          const importer = openProfileImporter ?? (async (url) => {
+            const { fetchOpenProfileContact } = await import("./openprofile-import.js");
+            return fetchOpenProfileContact(url);
+          });
+          return json({ profile: await importer(requestedProfile, { request, user }) });
+        } catch (error) {
+          if (error?.name === "OpenProfileImportError") return json({ error: error.message }, error.status);
+          throw error;
+        }
+      }
       const profile = (await store.get(user.id)) ?? { user_id: String(user.id), email: user.email ?? null };
       if (!profile.email && user.email) profile.email = user.email;
       return json({ profile, missing: missingFields(profile, required) });

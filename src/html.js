@@ -22,7 +22,17 @@ export function renderProfileFields({
   idPrefix = "profile-",
   className = "pfs-profile",
   labels = {},
+  importOpenProfile = false,
+  importEndpoint = "/api/v1/me/profile",
 } = {}) {
+  const importer = importOpenProfile ? `<div class="${esc(className)}__import" data-pfs-openprofile-import data-endpoint="${esc(importEndpoint)}" style="display:grid;gap:.5rem;margin-bottom:1rem">
+  <label for="${esc(`${idPrefix}openprofile-url`)}">Prefill from OpenProfile.md</label>
+  <div style="display:flex;flex-wrap:wrap;gap:.5rem">
+    <input id="${esc(`${idPrefix}openprofile-url`)}" type="url" autocomplete="url" placeholder="https://example.com/.well-known/openprofile.md" data-pfs-openprofile-url style="flex:1 1 18rem;min-width:0;padding:.5rem .75rem;border:1px solid currentColor;border-radius:.375rem;background:transparent;color:inherit;font:inherit">
+    <button type="button" data-pfs-openprofile-button disabled style="padding:.5rem .75rem;border:1px solid currentColor;border-radius:.375rem;background:transparent;color:inherit;font:inherit">Fetch and prefill</button>
+  </div>
+  <p class="${esc(className)}__import-status" data-pfs-openprofile-status role="status" aria-live="polite" style="min-height:1.25em;margin:0">Fetch to fill the fields, then review or edit them before saving.</p>
+</div>` : "";
   const rows = fields.map((name) => {
     const f = FIELD_BY_NAME[name];
     if (!f) throw new Error(`profile: unknown field ${name}`);
@@ -47,7 +57,7 @@ export function renderProfileFields({
   <input ${attrs.join(" ")}>${err ? `\n  <p class="${esc(className)}__error" id="${esc(id)}-error" role="alert">${esc(err)}</p>` : ""}
 </div>`;
   });
-  return `<fieldset class="${esc(className)}">\n${rows.join("\n")}\n</fieldset>`;
+  return `<fieldset class="${esc(className)}">\n${importer}${rows.join("\n")}\n</fieldset>`;
 }
 
 /**
@@ -58,4 +68,13 @@ export function renderProfileFields({
 export const PROFILE_ENHANCE_SCRIPT = `(()=>{const free=new Set(${JSON.stringify([...FREEMAIL])});
 document.querySelectorAll('input[name="email"]').forEach(e=>{const f=e.form;const d=f&&f.querySelector('input[name="company_domain"]');if(!d)return;
 e.addEventListener('blur',()=>{if(d.value.trim())return;const h=(e.value.split('@')[1]||'').trim().toLowerCase();
-if(h.includes('.')&&!free.has(h)&&!/^(yahoo|hotmail|outlook|live|gmx|yandex)\\./.test(h))d.value=h;});});})();`;
+if(h.includes('.')&&!free.has(h)&&!/^(yahoo|hotmail|outlook|live|gmx|yandex)\\./.test(h))d.value=h;});});
+document.querySelectorAll('[data-pfs-openprofile-import]').forEach(box=>{if(box.dataset.pfsBound)return;box.dataset.pfsBound='1';
+const input=box.querySelector('[data-pfs-openprofile-url]');const button=box.querySelector('[data-pfs-openprofile-button]');const status=box.querySelector('[data-pfs-openprofile-status]');const endpoint=box.dataset.endpoint||'/api/v1/me/profile';if(!input||!button||!status)return;
+input.addEventListener('input',()=>{button.disabled=!input.value.trim();});button.addEventListener('click',async()=>{button.disabled=true;button.textContent='Fetching…';status.textContent='';status.setAttribute('role','status');
+try{const profileUrl=new URL(input.value.trim());if(profileUrl.protocol!=='https:')throw new Error('Use an HTTPS OpenProfile URL.');
+const target=new URL(endpoint,location.href);target.searchParams.set('openprofile',profileUrl.href);const response=await fetch(target,{credentials:'same-origin',cache:'no-store'});const body=await response.json();if(!response.ok)throw new Error(body.error||'Could not fetch that OpenProfile.md.');
+const fields=box.closest('form')||box.parentElement;let count=0;Object.entries(body.profile||{}).forEach(([name,value])=>{if(typeof value!=='string'||!value.trim())return;const field=fields.querySelector('[name="'+name+'"]');if(!field)return;field.value=value;field.dispatchEvent(new Event('input',{bubbles:true}));field.dispatchEvent(new Event('change',{bubbles:true}));count++;});
+if(!count)throw new Error('No contact details were found in that OpenProfile.md.');status.textContent='Fetched. Review or edit the fields before saving.';
+}catch(error){status.textContent=error instanceof Error?error.message:'Could not fetch that OpenProfile.md.';status.setAttribute('role','alert');}
+finally{button.textContent='Fetch and prefill';button.disabled=!input.value.trim();}});});})();`;
