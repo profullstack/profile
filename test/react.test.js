@@ -23,3 +23,11 @@ test("a chosen subset and labels", () => {
   assert.ok(!html.includes('name="first_name"'));
   assert.match(html, />Role</);
 });
+
+test("OpenProfile prefill is opt-in for React profile forms", () => {
+  const html = renderToStaticMarkup(createElement(ProfileFields, { importOpenProfile: true }));
+  assert.match(html, /Prefill from OpenProfile\.md/);
+  assert.match(html, /Fetch and prefill/);
+  assert.match(html, /https:\/\/example\.com\/\.well-known\/openprofile\.md/);
+  assert.doesNotMatch(renderToStaticMarkup(createElement(ProfileFields, {})), /Prefill from OpenProfile/);
+});

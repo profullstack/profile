@@ -128,6 +128,7 @@ export interface HandlerOptions {
   getUser(request: Request, ...rest: unknown[]): SessionUser | null | Promise<SessionUser | null>;
   required?: readonly ProfileField[];
   onSaved?(profile: Profile, user: SessionUser): unknown;
+  openProfileImporter?(url: string, context: { request: Request; user: SessionUser }): Promise<Partial<Record<ProfileField, string>>>;
 }
 export function createProfileHandlers(options: HandlerOptions): {
   GET(request: Request, ...rest: unknown[]): Promise<Response>;
@@ -141,6 +142,13 @@ export function saveSignupProfile(
   input: ProfileInput,
   options?: { email?: string | null; required?: readonly ProfileField[] },
 ): Promise<ValidationResult & { profile: Partial<ProfileFields> | Profile }>;
+/** Fetch an OpenProfile URL and persist its fields only where the local profile is blank. */
+export function saveOpenProfileContact(
+  store: ProfileStore,
+  userId: string | number,
+  url: string,
+  fetchOptions?: { fetcher?: typeof fetch; lookup?: unknown },
+): Promise<Profile>;
 
 export interface RenderOptions {
   values?: Partial<Record<ProfileField, string | null>>;
@@ -150,6 +158,10 @@ export interface RenderOptions {
   idPrefix?: string;
   className?: string;
   labels?: Partial<Record<ProfileField, string>>;
+  /** Show a URL field that pre-fills these fields from OpenProfile.md. */
+  importOpenProfile?: boolean;
+  /** Same-origin authenticated profile endpoint used by the importer. */
+  importEndpoint?: string;
 }
 export function renderProfileFields(options?: RenderOptions): string;
 export const PROFILE_ENHANCE_SCRIPT: string;

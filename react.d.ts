@@ -8,6 +8,8 @@ export interface ProfileFieldsProps extends RenderOptions {
   /** Initial values when uncontrolled. */
   defaultValues?: Partial<Record<ProfileField, string | null>>;
   disabled?: boolean;
+  /** Override the default same-origin profile request when the app uses custom auth. */
+  importOpenProfileFetcher?(url: string): Promise<Partial<Record<ProfileField, string>>>;
 }
 
 export function ProfileFields(props: ProfileFieldsProps): ReactElement;

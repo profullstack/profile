@@ -162,6 +162,21 @@ for (const [name, open] of backends) {
       assert.equal(res.profile.email, "eve@acme.com");
       assert.equal(res.profile.company_domain, "acme.com");
       assert.deepEqual(res.missing, []);
+
+      const importHandler = createProfileHandlers({
+        store,
+        getUser: () => user,
+        openProfileImporter: async (url) => {
+          assert.equal(url, "https://ada.example/openprofile.md");
+          return { first_name: "Ada", last_name: "Lovelace" };
+        },
+      });
+      const importedResponse = await importHandler.GET(
+        new Request("https://app.example/api/v1/me/profile?openprofile=https%3A%2F%2Fada.example%2Fopenprofile.md"),
+      );
+      assert.deepEqual(await importedResponse.json(), { profile: { first_name: "Ada", last_name: "Lovelace" } });
+      assert.equal((await store.get(id)).first_name, "Eve", "import only returns values; it does not save them");
+
       const bad = await h.PATCH(
         new Request("http://x", { method: "PATCH", headers: { "content-type": "application/json" }, body: "{" }),
       );
