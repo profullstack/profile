@@ -44,26 +44,28 @@ function contactValues(doc) {
     ),
   );
   const all = { ...contact, ...identity };
-  const value = (...keys) => {
-    for (const key of keys) {
-      const found = all[keyOf(key)]?.trim();
-      if (found) return found;
-    }
-    return '';
-  };
+  const values = (...keys) => keys.map((key) => all[keyOf(key)]?.trim()).filter(Boolean);
+  const value = (...keys) => values(...keys)[0] ?? '';
   return {
     email: value('email', 'contact email'),
     first_name: value('first name', 'given name', 'given'),
     last_name: value('last name', 'family name', 'surname'),
-    company_domain: value(
+    company_domain_candidates: values(
       'company domain',
       'company_domain',
       'organization domain',
       'organisation domain',
+      'employer domain',
       'company website',
+      'company_website',
       'organization website',
       'organisation website',
       'employer website',
+      'web',
+      'website',
+      'homepage',
+      'home page',
+      'site',
       'company',
       'organization',
       'organisation',
@@ -80,14 +82,18 @@ export function contactFromOpenProfile(markdown) {
   const source = contactValues(doc);
   const profile = {};
   const put = (field, raw, mode = 'text') => {
-    if (!raw) return;
+    if (!raw) return false;
     const candidate = mode === 'target' ? markdownTarget(raw) : mode === 'email' ? emailAddress(raw) : markdownText(raw);
     try {
       const normalized = NORMALIZERS[field](candidate);
-      if (normalized) profile[field] = normalized;
+      if (normalized) {
+        profile[field] = normalized;
+        return true;
+      }
     } catch {
       // Skip an unfamiliar value while keeping other usable fields.
     }
+    return false;
   };
 
   put('email', source.email, 'email');
@@ -98,7 +104,9 @@ export function contactFromOpenProfile(markdown) {
   if (!profile.first_name && name.first_name) put('first_name', name.first_name);
   if (!profile.last_name && name.last_name) put('last_name', name.last_name);
 
-  put('company_domain', source.company_domain, 'target');
+  for (const candidate of source.company_domain_candidates) {
+    if (put('company_domain', candidate, 'target')) break;
+  }
   if (!profile.company_domain && profile.email) {
     const inferred = domainFromEmail(profile.email);
     if (inferred) profile.company_domain = inferred;
