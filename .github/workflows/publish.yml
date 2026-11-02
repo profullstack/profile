@@ -4,7 +4,8 @@
 # that only updates when somebody remembers is a channel that silently serves an
 # old version forever. `workflow_dispatch` is for re-running one that failed on
 # something transient, and is safe because a version already on the registry is
-# skipped rather than attempted.
+# skipped rather than attempted. Use `workflow_dispatch` with `verify_auth: true`
+# to check the configured publisher token without creating a package version.
 #
 # Authenticates with an npm automation token in the repository secret
 # `NPM_TOKEN`. `registry-url` is what makes setup-node write the token into
@@ -15,6 +16,12 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      verify_auth:
+        description: Verify NPM_TOKEN without publishing a package
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -31,6 +38,12 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
+
+      - name: Verify npm publisher credentials
+        if: github.event_name == 'workflow_dispatch' && inputs.verify_auth
+        run: npm whoami --registry=https://registry.npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # The Postgres half of the suite runs in test.yml; a release reruns the
       # rest (libSQL in memory, rendering, validation) against the exact tree.
